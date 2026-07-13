@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.noumanasghar3000.twa",
+        "sha256_cert_fingerprints": ["A2:BB:3A:B2:BF:3D:B2:D6:4E:A3:1B:0A:6B:54:57:56:0C:A1:3A:77:6E:A4:2A:5D:96:BF:91:7F:B8:6B:74:39"]
+      }
+    }]
