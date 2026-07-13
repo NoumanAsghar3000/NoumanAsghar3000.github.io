@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>MedGemma Assistant</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0f2f3d" />
+<style>
+  :root{
+    --ink:#0f2f3d;
+    --ink-soft:#3a5a68;
+    --paper:#f6f7f5;
+    --panel:#ffffff;
+    --line:#dfe6e3;
+    --accent:#1f6f5c;
+    --accent-soft:#e4f0ec;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;overflow:hidden;}
+  body{
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+  }
+
+  #authScreen{
+    position:fixed; inset:0;
+    background:var(--ink);
+    color:#eef4f2;
+    z-index:100;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  #authScreen.hidden{ display:none; }
+  .auth-card{
+    background:#12384a;
+    border-radius:16px;
+    padding:28px 24px;
+    width:100%;
+    max-width:340px;
+  }
+  .auth-card h2{ margin:0 0 4px; font-size:19px; }
+  .auth-card p{ margin:0 0 20px; font-size:12.5px; color:#a9c1bc; }
+  .auth-tabs{
+    display:flex; gap:6px; margin-bottom:18px;
+    background:#0c2530; border-radius:10px; padding:4px;
+  }
+  .auth-tab{
+    flex:1; text-align:center; padding:8px; border-radius:8px;
+    font-size:13px; cursor:pointer; color:#a9c1bc;
+  }
+  .auth-tab.active{ background:var(--accent); color:#fff; }
+  .auth-card label{ display:block; font-size:12px; color:#a9c1bc; margin:12px 0 5px; }
+  .auth-card input{
+    width:100%; padding:10px 11px; border-radius:9px;
+    border:1px solid #2a5060; background:#0c2530; color:#eef4f2; font-size:14px;
+  }
+  #authSubmitBtn{
+    width:100%; margin-top:20px; background:var(--accent); color:#fff;
+    border:none; border-radius:10px; padding:11px; font-size:14px;
+    font-weight:600; cursor:pointer;
+  }
+  #authError{ color:#f3a8a8; font-size:12.5px; margin-top:12px; display:none; }
+
+  header{
+    padding:14px 16px;
+    background:var(--ink);
+    color:#eef4f2;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    -webkit-user-select:none;
+    user-select:none;
+    flex-shrink:0;
+  }
+  header h1{ font-size:16px; margin:0; font-weight:600; letter-spacing:0.2px; flex:1; }
+  .icon-btn-header{
+    background:none; border:1px solid #35545e; color:#cfe3de;
+    border-radius:10px; width:34px; height:34px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px; flex-shrink:0;
+  }
+
+  #sidebar{
+    position:fixed; top:0; left:0; bottom:0; width:270px;
+    background:#0c2530; color:#e4ece9; z-index:30;
+    transform:translateX(-100%); transition:transform 0.22s ease;
+    display:flex; flex-direction:column; padding:14px 10px;
+  }
+  #sidebar.open{ transform:translateX(0); }
+  #sidebarBackdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:20; display:none; }
+  #sidebarBackdrop.open{ display:block; }
+  #newChatBtn{
+    background:var(--accent); color:#fff; border:none; border-radius:10px;
+    padding:10px 12px; font-size:13.5px; font-weight:600; cursor:pointer;
+    text-align:left; margin-bottom:14px;
+  }
+  #chatList{ flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+  .chat-item{
+    display:flex; align-items:center; gap:6px; padding:9px 10px;
+    border-radius:9px; cursor:pointer; font-size:13px; color:#c8d6d2;
+  }
+  .chat-item:hover, .chat-item.active{ background:#163847; color:#fff; }
+  .chat-item .chat-title{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chat-item .chat-delete{
+    background:none; border:none; color:#7d938d;
+    font-size:13px; cursor:pointer; padding:2px 4px; flex-shrink:0;
+  }
+  .sidebar-label{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em;
+    color:#7d938d; padding:6px 10px 4px;
+  }
+  #sidebarFooter{ border-top:1px solid #1c3f4c; padding-top:10px; margin-top:8px; font-size:12px; }
+  #sidebarUsername{ color:#a9c1bc; padding:0 10px 8px; }
+  #logoutBtn{
+    background:none; border:1px solid #35545e; color:#cfe3de;
+    border-radius:9px; padding:8px 10px; font-size:12.5px;
+    cursor:pointer; width:100%; text-align:left;
+  }
+
+  main{
+    flex:1; display:flex; flex-direction:column; padding:16px; gap:14px;
+    max-width:720px; width:100%; margin:0 auto; overflow-y:auto;
+  }
+  .empty-state{ color:var(--ink-soft); font-size:13.5px; text-align:center; margin-top:60px; }
+  .msg{ border-radius:var(--radius); padding:14px 16px; font-size:14.5px; line-height:1.55; }
+  .msg.user{ background:var(--accent-soft); border:1px solid #cfe4dc; }
+  .msg.assistant{ background:var(--panel); border:1px solid var(--line); }
+  .msg .label{
+    font-size:11px; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--ink-soft); margin-bottom:6px; font-weight:600;
+  }
+  .disclaimer-line{
+    color:#9aa0a6; font-size:10.5px; margin-top:10px;
+    padding-top:8px; border-top:1px solid var(--line);
+  }
+  .download-btn{
+    display:inline-flex; align-items:center; gap:6px; margin-top:10px;
+    background:var(--accent); color:#fff; border:none; border-radius:10px;
+    padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .preview-thumb{ max-width:140px; border-radius:10px; margin:0 6px 6px 0; display:inline-block; }
+  .file-chip-img{ max-width:140px; max-height:140px; border-radius:10px; }
+  .file-chip-doc{
+    display:inline-flex; align-items:center; gap:6px; background:var(--paper);
+    border:1px solid var(--line); border-radius:10px; padding:6px 10px;
+    font-size:12.5px; margin:0 6px 6px 0;
+  }
+  .composer{ flex-shrink:0; background:var(--paper); padding:0 16px 12px; }
+  .composer-inner{
+    max-width:720px; margin:0 auto; background:var(--panel);
+    border:1px solid var(--line); border-radius:var(--radius); padding:10px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  textarea{
+    border:none; resize:none; font-size:14.5px; font-family:inherit;
+    padding:6px 4px; min-height:44px; max-height:140px; outline:none;
+    background:transparent; color:var(--ink);
+  }
+  .composer-row{ display:flex; align-items:center; gap:8px; }
+  .icon-btn{
+    border:1px solid var(--line); background:var(--paper); border-radius:10px;
+    width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px; flex-shrink:0;
+  }
+  #sendBtn{
+    margin-left:auto; background:var(--accent); color:#fff; border:none;
+    border-radius:10px; padding:0 18px; height:38px; font-weight:600;
+    font-size:13.5px; cursor:pointer;
+  }
+  #sendBtn:disabled{ opacity:0.5; }
+  #attachPreviewBar{ display:none; flex-wrap:wrap; align-items:flex-start; padding:2px 2px 0; }
+  .file-chip-wrap{ position:relative; display:inline-block; }
+  .file-chip-remove{
+    position:absolute; top:-4px; right:2px; background:#8a1f1f; color:#fff;
+    border:none; border-radius:50%; width:18px; height:18px; font-size:11px;
+    line-height:18px; text-align:center; cursor:pointer; padding:0;
+  }
+  .status{ font-size:12.5px; color:var(--ink-soft); padding:0 4px; }
+</style>
+</head>
+<body>
+
+<div id="authScreen">
+  <div class="auth-card">
+    <h2>MedGemma Assistant</h2>
+    <p>Sign in to your account to continue.</p>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="loginTab">Log In</div>
+      <div class="auth-tab" id="signupTab">Sign Up</div>
+    </div>
+    <label for="authUsername">Username</label>
+    <input id="authUsername" autocomplete="username" />
+    <label for="authPassword">Password</label>
+    <input id="authPassword" type="password" autocomplete="current-password" />
+    <div id="inviteCodeGroup" style="display:none;">
+      <label for="authInviteCode">Invite code</label>
+      <input id="authInviteCode" autocomplete="off" />
+    </div>
+    <button id="authSubmitBtn">Log In</button>
+    <div id="authError"></div>
+  </div>
+</div>
+
+<div id="sidebarBackdrop"></div>
+<div id="sidebar">
+  <button id="newChatBtn">+ New Chat</button>
+  <div class="sidebar-label">Recent</div>
+  <div id="chatList"></div>
+  <div id="sidebarFooter">
+    <div id="sidebarUsername"></div>
+    <button id="logoutBtn">Log out</button>
+  </div>
+</div>
+
+<header>
+  <button class="icon-btn-header" id="menuBtn" title="Chats">☰</button>
+  <h1>MedGemma Assistant</h1>
+</header>
+
+<div class="app-body" style="flex:1;display:flex;min-height:0;">
+  <main id="thread"></main>
+</div>
+
+<div class="composer">
+  <div class="composer-inner">
+    <div id="attachPreviewBar"></div>
+    <textarea id="textInput" placeholder="Describe symptoms, notes, or a question about the attached files..."></textarea>
+    <div class="composer-row">
+      <button class="icon-btn" id="cameraBtn" title="Take photo">📷</button>
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden />
+      <button class="icon-btn" id="attachBtn" title="Attach files">📎</button>
+      <input type="file" id="fileInput" accept="image/*,application/pdf,.pdf" multiple hidden />
+      <span class="status" id="statusText"></span>
+      <button id="sendBtn">Analyze</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = "https://noumanasghar3000--medgemma-app-medgemmamodel-web.modal.run";
+
+const authScreen = document.getElementById('authScreen');
+const loginTab = document.getElementById('loginTab');
+const signupTab = document.getElementById('signupTab');
+const authUsername = document.getElementById('authUsername');
+const authPassword = document.getElementById('authPassword');
+const authInviteCode = document.getElementById('authInviteCode');
+const inviteCodeGroup = document.getElementById('inviteCodeGroup');
+const authSubmitBtn = document.getElementById('authSubmitBtn');
+const authError = document.getElementById('authError');
+const sidebarUsername = document.getElementById('sidebarUsername');
+const logoutBtn = document.getElementById('logoutBtn');
+
+let authMode = 'login';
+
+function setAuthMode(mode) {
+  authMode = mode;
+  loginTab.classList.toggle('active', mode === 'login');
+  signupTab.classList.toggle('active', mode === 'signup');
+  authSubmitBtn.textContent = mode === 'login' ? 'Log In' : 'Sign Up';
+  inviteCodeGroup.style.display = mode === 'signup' ? 'block' : 'none';
+  authError.style.display = 'none';
+}
+loginTab.onclick = () => setAuthMode('login');
+signupTab.onclick = () => setAuthMode('signup');
+
+authSubmitBtn.onclick = async () => {
+  const username = authUsername.value.trim();
+  const password = authPassword.value;
+  const inviteCode = authInviteCode.value.trim();
+  authError.style.display = 'none';
+  if (!username || !password) {
+    authError.textContent = 'Enter a username and password.';
+    authError.style.display = 'block';
+    return;
+  }
+  if (authMode === 'signup' && !inviteCode) {
+    authError.textContent = 'An invite code is required to sign up.';
+    authError.style.display = 'block';
+    return;
+  }
+  authSubmitBtn.disabled = true;
+  try {
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('password', password);
+    if (authMode === 'signup') formData.append('invite_code', inviteCode);
+    const res = await fetch(API_BASE + '/' + authMode, { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Something went wrong.');
+    localStorage.setItem('mg_token', data.token);
+    localStorage.setItem('mg_username', data.username);
+    enterApp(data.username);
+  } catch (err) {
+    authError.textContent = err.message;
+    authError.style.display = 'block';
+  } finally {
+    authSubmitBtn.disabled = false;
+  }
+};
+
+logoutBtn.onclick = () => {
+  localStorage.removeItem('mg_token');
+  localStorage.removeItem('mg_username');
+  location.reload();
+};
+
+function enterApp(username) {
+  authScreen.classList.add('hidden');
+  sidebarUsername.textContent = '👤 ' + username;
+  loadConversationsForUser(username);
+}
+
+const thread = document.getElementById('thread');
+const textInput = document.getElementById('textInput');
+const fileInput = document.getElementById('fileInput');
+const cameraInput = document.getElementById('cameraInput');
+const attachBtn = document.getElementById('attachBtn');
+const cameraBtn = document.getElementById('cameraBtn');
+const sendBtn = document.getElementById('sendBtn');
+const statusText = document.getElementById('statusText');
+const attachPreviewBar = document.getElementById('attachPreviewBar');
+const menuBtn = document.getElementById('menuBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+const newChatBtn = document.getElementById('newChatBtn');
+const chatList = document.getElementById('chatList');
+
+let selectedFiles = [];
+let fileIdCounter = 0;
+let conversations = [];
+let activeConversationId = null;
+let currentUsername = null;
+
+function conversationsKey() { return 'mg_conversations_' + currentUsername; }
+function saveConversations() { localStorage.setItem(conversationsKey(), JSON.stringify(conversations)); }
+
+function loadConversationsForUser(username) {
+  currentUsername = username;
+  conversations = JSON.parse(localStorage.getItem(conversationsKey()) || '[]');
+  activeConversationId = conversations.length > 0 ? conversations[0].id : null;
+  renderSidebar();
+  renderThread();
+}
+
+function getActiveConversation() {
+  return conversations.find(c => c.id === activeConversationId) || null;
+}
+
+function renderSidebar() {
+  chatList.innerHTML = '';
+  for (const conv of conversations) {
+    const item = document.createElement('div');
+    item.className = 'chat-item' + (conv.id === activeConversationId ? ' active' : '');
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'chat-title';
+    titleSpan.textContent = conv.title || 'New Chat';
+    item.appendChild(titleSpan);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'chat-delete';
+    delBtn.textContent = '✕';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      conversations = conversations.filter(c => c.id !== conv.id);
+      saveConversations();
+      if (activeConversationId === conv.id) { activeConversationId = null; renderThread(); }
+      renderSidebar();
+    };
+    item.appendChild(delBtn);
+    item.onclick = () => {
+      activeConversationId = conv.id;
+      renderThread();
+      renderSidebar();
+      closeSidebar();
+    };
+    chatList.appendChild(item);
+  }
+}
+
+function renderThread() {
+  thread.innerHTML = '';
+  const conv = getActiveConversation();
+  if (!conv || conv.messages.length === 0) {
+    thread.innerHTML = '<div class="empty-state">Start a new analysis — describe symptoms, attach a photo, or upload a report.</div>';
+    return;
+  }
+  for (const m of conv.messages) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + m.role;
+    div.innerHTML = m.html;
+    thread.appendChild(div);
+  }
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function openSidebar() { sidebar.classList.add('open'); sidebarBackdrop.classList.add('open'); }
+function closeSidebar() { sidebar.classList.remove('open'); sidebarBackdrop.classList.remove('open'); }
+menuBtn.onclick = openSidebar;
+sidebarBackdrop.onclick = closeSidebar;
+
+newChatBtn.onclick = () => {
+  activeConversationId = null;
+  renderThread();
+  renderSidebar();
+  closeSidebar();
+};
+
+attachBtn.onclick = () => fileInput.click();
+cameraBtn.onclick = () => cameraInput.click();
+
+function addFiles(fileList) {
+  for (const f of fileList) selectedFiles.push({ file: f, id: fileIdCounter++ });
+  renderAttachPreview();
+}
+fileInput.onchange = () => { addFiles(fileInput.files); fileInput.value = ''; };
+cameraInput.onchange = () => { addFiles(cameraInput.files); cameraInput.value = ''; };
+
+function renderAttachPreview() {
+  attachPreviewBar.innerHTML = '';
+  if (selectedFiles.length === 0) { attachPreviewBar.style.display = 'none'; return; }
+  attachPreviewBar.style.display = 'flex';
+  for (const entry of selectedFiles) {
+    const wrap = document.createElement('div');
+    wrap.className = 'file-chip-wrap';
+    if (entry.file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.className = 'file-chip-img';
+      img.src = URL.createObjectURL(entry.file);
+      wrap.appendChild(img);
+    } else {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip-doc';
+      chip.textContent = '📄 ' + entry.file.name;
+      wrap.appendChild(chip);
+    }
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'file-chip-remove';
+    removeBtn.textContent = '✕';
+    removeBtn.onclick = () => {
+      selectedFiles = selectedFiles.filter(e => e.id !== entry.id);
+      renderAttachPreview();
+    };
+    wrap.appendChild(removeBtn);
+    attachPreviewBar.appendChild(wrap);
+  }
+}
+
+function addMessage(role, html) {
+  let conv = getActiveConversation();
+  if (!conv) {
+    conv = { id: 'c' + Date.now(), title: 'New Chat', createdAt: Date.now(), messages: [] };
+    conversations.unshift(conv);
+    activeConversationId = conv.id;
+  }
+  conv.messages.push({ role, html });
+  if (role === 'user' && (conv.title === 'New Chat' || !conv.title)) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const rawText = tmp.textContent.replace('You', '').trim();
+    conv.title = (rawText || 'Image analysis').slice(0, 40);
+  }
+  saveConversations();
+  renderSidebar();
+
+  if (thread.querySelector('.empty-state')) thread.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = html;
+  thread.appendChild(div);
+  thread.scrollTop = thread.scrollHeight;
+  return div;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatAnalysisText(s) {
+  const escaped = escapeHtml(s);
+  const lines = escaped.split('\n').map(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      return '&nbsp;&nbsp;&#8226;&nbsp; ' + trimmed.slice(2).trim();
+    }
+    return line;
+  });
+  let html = lines.join('<br>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return html;
+}
+
+function downloadPdfBase64(base64, filename) {
+  const byteChars = atob(base64);
+  const bytes = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'report.pdf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  return url;
+}
+
+async function sendAnalysis() {
+  const text = textInput.value.trim();
+  if (!text && selectedFiles.length === 0) return;
+
+  const token = localStorage.getItem('mg_token');
+  if (!token) { location.reload(); return; }
+
+  let userHtml = '<div class="label">You</div>';
+  for (const entry of selectedFiles) {
+    if (entry.file.type.startsWith('image/')) {
+      userHtml += `<img class="preview-thumb" src="${URL.createObjectURL(entry.file)}" />`;
+    } else {
+      userHtml += `<div class="file-chip-doc" style="margin-bottom:6px;">📄 ${escapeHtml(entry.file.name)}</div>`;
+    }
+  }
+  if (text) userHtml += `<div>${escapeHtml(text)}</div>`;
+  addMessage('user', userHtml);
+
+  const filesToSend = selectedFiles.map(e => e.file);
+  textInput.value = '';
+  selectedFiles = [];
+  renderAttachPreview();
+  sendBtn.disabled = true;
+  statusText.textContent = 'Analyzing...';
+
+  const formData = new FormData();
+  formData.append('text', text);
+  for (const f of filesToSend) formData.append('files', f);
+
+  try {
+    const res = await fetch(API_BASE + '/analyze', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: formData,
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('mg_token');
+      localStorage.removeItem('mg_username');
+      location.reload();
+      return;
+    }
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Server returned ${res.status}: ${errText}`);
+    }
+    const data = await res.json();
+    const pdfUrl = downloadPdfBase64(data.pdf_base64, data.filename);
+
+    addMessage('assistant', `
+      <div class="label">MedGemma Analysis</div>
+      ${formatAnalysisText(data.analysis_text)}
+      <div class="disclaimer-line">${escapeHtml(data.disclaimer)}</div>
+      <button class="download-btn" onclick="window.open('${pdfUrl}', '_blank')">⬇ Download PDF report</button>
+    `);
+    statusText.textContent = 'Done. If the PDF didn\'t auto-download, use the button above.';
+  } catch (err) {
+    addMessage('assistant', `<div class="label">Error</div>${escapeHtml(err.message)}`);
+    statusText.textContent = '';
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+sendBtn.onclick = sendAnalysis;
+textInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendAnalysis();
+  }
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+const savedToken = localStorage.getItem('mg_token');
+const savedUsername = localStorage.getItem('mg_username');
+if (savedToken && savedUsername) {
+  enterApp(savedUsername);
+}
+</script>
+</body>
+</html>
