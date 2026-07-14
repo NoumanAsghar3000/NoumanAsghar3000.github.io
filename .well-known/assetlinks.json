@@ -1,8 +1,8 @@
 [{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "io.github.noumanasghar3000.twa",
-        "sha256_cert_fingerprints": ["A2:BB:3A:B2:BF:3D:B2:D6:4E:A3:1B:0A:6B:54:57:56:0C:A1:3A:77:6E:A4:2A:5D:96:BF:91:7F:B8:6B:74:39"]
-      }
-    }]
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "io.github.noumanasghar3000.twa",
+    "sha256_cert_fingerprints": ["F3:CD:62:A2:3D:35:9C:27:01:A0:56:BA:57:AC:1A:F2:27:0B:30:CB:D9:57:DA:29:C0:1A:D4:DD:8E:8D:CC:1E"]
+  }
+}]
