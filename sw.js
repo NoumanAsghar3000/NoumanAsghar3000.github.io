@@ -8,9 +8,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache the app shell itself — never cache API calls to the Space,
-  // since those are dynamic analysis results.
-  if (event.request.url.includes('/analyze')) return;
+  if (event.request.url.includes('/analyze') || event.request.url.includes('/login') || event.request.url.includes('/oauth-login')) return;
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
